@@ -4,11 +4,13 @@
 
 ## 在线使用
 
-部署完成后，访问：
+**仓库**：https://github.com/997wxr-hub/pomodoro
 
-**https://YOUR_GITHUB_USERNAME.github.io/pomodoro/**
+部署完成后访问：
 
-（将 `YOUR_GITHUB_USERNAME` 替换为你的 GitHub 用户名；首次推送后约 1–2 分钟生效。）
+**https://997wxr-hub.github.io/pomodoro/**
+
+> 私有仓库在 GitHub 免费计划下无法启用 Pages。若链接 404，需将 `pomodoro` 改为 **Public**（见 `docs/product-launch-guide.md`），或使用 Cloudflare Pages。
 
 手机：用浏览器打开同一链接，可「添加到主屏幕」。
 
