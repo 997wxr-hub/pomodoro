@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>番茄钟</title>
+<style>
+  :root {
+    --bg: #2b2d42;
+    --accent: #ef476f;
+    --accent-break: #06d6a0;
+    --accent-long: #118ab2;
+    --text: #f8f9fa;
+    --muted: #adb5bd;
+    --card: rgba(255, 255, 255, 0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    transition: background 0.6s ease;
+    -webkit-user-select: none;
+    user-select: none;
+    overflow: hidden;
+  }
+  body.work       { --bg: #2b2d42; }
+  body.shortBreak { --bg: #1b4332; }
+  body.longBreak  { --bg: #14213d; }
+
+  .app {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    padding: 24px;
+  }
+
+  .modes {
+    display: flex;
+    gap: 8px;
+    background: var(--card);
+    padding: 6px;
+    border-radius: 999px;
+  }
+  .modes button {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 14px;
+    padding: 8px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .modes button.active {
+    background: var(--text);
+    color: var(--bg);
+    font-weight: 600;
+  }
+
+  .ring-wrap { position: relative; width: 300px; height: 300px; }
+  svg { transform: rotate(-90deg); }
+  .ring-bg   { stroke: rgba(255,255,255,0.1); }
+  .ring-fg   { stroke-linecap: round; transition: stroke-dashoffset 0.4s linear, stroke 0.6s; }
+  body.work       .ring-fg { stroke: var(--accent); }
+  body.shortBreak .ring-fg { stroke: var(--accent-break); }
+  body.longBreak  .ring-fg { stroke: var(--accent-long); }
+
+  .ring-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .time {
+    font-size: 64px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 2px;
+  }
+  .label { font-size: 15px; color: var(--muted); }
+
+  .controls { display: flex; gap: 14px; align-items: center; }
+  .controls button {
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: transform 0.1s, opacity 0.2s;
+  }
+  .controls button:active { transform: scale(0.94); }
+  .btn-main {
+    background: var(--text);
+    color: var(--bg);
+    padding: 14px 44px;
+    min-width: 140px;
+  }
+  .btn-icon {
+    background: var(--card);
+    color: var(--text);
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+  }
+
+  .footer {
+    display: flex;
+    gap: 22px;
+    color: var(--muted);
+    font-size: 13px;
+    align-items: center;
+  }
+  .footer .count strong { color: var(--text); font-size: 16px; }
+
+  /* Settings panel */
+  .gear {
+    position: fixed; top: 16px; right: 18px;
+    background: transparent; border: none; color: var(--muted);
+    font-size: 22px; cursor: pointer; opacity: 0.6;
+  }
+  .gear:hover { opacity: 1; }
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: none; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .overlay.show { display: flex; }
+  .panel {
+    background: #1e2030;
+    border-radius: 18px;
+    padding: 28px;
+    width: 320px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .panel h2 { font-size: 18px; margin-bottom: 18px; }
+  .row {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px;
+  }
+  .row label { font-size: 14px; color: var(--muted); }
+  .row input[type=number] {
+    width: 72px; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06); color: var(--text);
+    font-size: 14px; text-align: center;
+  }
+  .row input[type=checkbox] { width: 18px; height: 18px; cursor: pointer; }
+  .panel .save {
+    width: 100%; margin-top: 10px; padding: 12px;
+    background: var(--accent); color: #fff; border: none;
+    border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+</style>
+</head>
+<body class="work">
+  <button class="gear" id="gear" title="设置">⚙</button>
+
+  <div class="app">
+    <div class="modes">
+      <button data-mode="work" class="active">专注</button>
+      <button data-mode="shortBreak">短休息</button>
+      <button data-mode="longBreak">长休息</button>
+    </div>
+
+    <div class="ring-wrap">
+      <svg width="300" height="300" viewBox="0 0 300 300">
+        <circle class="ring-bg" cx="150" cy="150" r="135" fill="none" stroke-width="14" />
+        <circle class="ring-fg" id="ring" cx="150" cy="150" r="135" fill="none" stroke-width="14" />
+      </svg>
+      <div class="ring-center">
+        <div class="time" id="time">25:00</div>
+        <div class="label" id="label">准备开始</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn-icon" id="reset" title="重置">↺</button>
+      <button class="btn-main" id="toggle">开始</button>
+      <button class="btn-icon" id="skip" title="跳过">⏭</button>
+    </div>
+
+    <div class="footer">
+      <div class="count">今日已完成 <strong id="done">0</strong> 个番茄</div>
+      <div>Space 开始/暂停 · R 重置</div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="overlay" id="overlay">
+    <div class="panel">
+      <h2>设置</h2>
+      <div class="row"><label>专注时长（分钟）</label><input type="number" id="s-work" min="1" max="120" /></div>
+      <div class="row"><label>短休息（分钟）</label><input type="number" id="s-short" min="1" max="60" /></div>
+      <div class="row"><label>长休息（分钟）</label><input type="number" id="s-long" min="1" max="60" /></div>
+      <div class="row"><label>几轮后长休息</label><input type="number" id="s-interval" min="1" max="12" /></div>
+      <div class="row"><label>自动开始下一阶段</label><input type="checkbox" id="s-auto" /></div>
+      <div class="row"><label>提示音</label><input type="checkbox" id="s-sound" /></div>
+      <button class="save" id="save">保存</button>
+    </div>
+  </div>
+
+<script>
+const DEFAULTS = { work: 25, shortBreak: 5, longBreak: 15, interval: 4, auto: false, sound: true };
+const LABELS = { work: "专注中", shortBreak: "短休息", longBreak: "长休息" };
+const RADIUS = 135;
+const CIRC = 2 * Math.PI * RADIUS;
+
+let settings = loadSettings();
+let mode = "work";
+let remaining = settings.work * 60;
+let total = remaining;
+let running = false;
+let ticker = null;
+let endAt = 0;            // absolute target timestamp (drift-free)
+let completedToday = loadCount();
+let cycle = 0;           // finished focus sessions in current round
+
+// ---- elements ----
+const $ = id => document.getElementById(id);
+const ring = $("ring");
+ring.style.strokeDasharray = CIRC;
+
+function loadSettings() {
+  try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem("pomo-settings") || "{}") }; }
+  catch { return { ...DEFAULTS }; }
+}
+function loadCount() {
+  const today = new Date().toDateString();
+  try {
+    const d = JSON.parse(localStorage.getItem("pomo-count") || "{}");
+    return d.date === today ? d.n : 0;
+  } catch { return 0; }
+}
+function saveCount() {
+  localStorage.setItem("pomo-count", JSON.stringify({ date: new Date().toDateString(), n: completedToday }));
+}
+
+function fmt(s) {
+  const m = Math.floor(s / 60), sec = s % 60;
+  return `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+}
+
+function render() {
+  $("time").textContent = fmt(remaining);
+  $("label").textContent = running ? LABELS[mode] : (remaining === total ? "准备开始" : "已暂停");
+  $("done").textContent = completedToday;
+  const offset = CIRC * (1 - remaining / total);
+  ring.style.strokeDashoffset = offset;
+  $("toggle").textContent = running ? "暂停" : "开始";
+  document.title = `${fmt(remaining)} · ${LABELS[mode]}`;
+}
+
+function setMode(m, resetOnly) {
+  mode = m;
+  document.body.className = m;
+  document.querySelectorAll(".modes button").forEach(b =>
+    b.classList.toggle("active", b.dataset.mode === m));
+  total = settings[m] * 60;
+  remaining = total;
+  if (!resetOnly) { running = false; clearInterval(ticker); }
+  render();
+}
+
+function start() {
+  if (running) return;
+  running = true;
+  endAt = Date.now() + remaining * 1000;
+  ticker = setInterval(tick, 250);
+  requestNotifyPermission();
+  render();
+}
+function pause() {
+  running = false;
+  clearInterval(ticker);
+  render();
+}
+function tick() {
+  remaining = Math.max(0, Math.round((endAt - Date.now()) / 1000));
+  if (remaining <= 0) { finish(); return; }
+  render();
+}
+
+function finish() {
+  clearInterval(ticker);
+  running = false;
+  if (settings.sound) beep();
+  notify();
+
+  if (mode === "work") {
+    completedToday++; saveCount();
+    cycle++;
+    const next = (cycle % settings.interval === 0) ? "longBreak" : "shortBreak";
+    setMode(next, true);
+  } else {
+    setMode("work", true);
+  }
+  render();
+  if (settings.auto) start();
+}
+
+function reset() {
+  pause();
+  remaining = total;
+  render();
+}
+function skip() {
+  pause();
+  if (mode === "work") {
+    cycle++;
+    setMode((cycle % settings.interval === 0) ? "longBreak" : "shortBreak", true);
+  } else setMode("work", true);
+}
+
+// ---- notifications ----
+function requestNotifyPermission() {
+  if ("Notification" in window && Notification.permission === "default")
+    Notification.requestPermission();
+}
+function notify() {
+  const msg = mode === "work" ? "专注结束，休息一下！" : "休息结束，继续专注！";
+  if ("Notification" in window && Notification.permission === "granted")
+    new Notification("🍅 番茄钟", { body: msg });
+}
+function beep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [880, 660, 880];
+    notes.forEach((f, i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = f; o.type = "sine";
+      o.connect(g); g.connect(ctx.destination);
+      const t = ctx.currentTime + i * 0.18;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.3, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+      o.start(t); o.stop(t + 0.18);
+    });
+  } catch (e) {}
+}
+
+// ---- events ----
+$("toggle").onclick = () => running ? pause() : start();
+$("reset").onclick = reset;
+$("skip").onclick = skip;
+document.querySelectorAll(".modes button").forEach(b =>
+  b.onclick = () => setMode(b.dataset.mode));
+
+document.addEventListener("keydown", e => {
+  if (e.code === "Space") { e.preventDefault(); running ? pause() : start(); }
+  if (e.code === "KeyR") reset();
+});
+
+// ---- settings panel ----
+$("gear").onclick = () => {
+  $("s-work").value = settings.work;
+  $("s-short").value = settings.shortBreak;
+  $("s-long").value = settings.longBreak;
+  $("s-interval").value = settings.interval;
+  $("s-auto").checked = settings.auto;
+  $("s-sound").checked = settings.sound;
+  $("overlay").classList.add("show");
+};
+$("overlay").onclick = e => { if (e.target.id === "overlay") $("overlay").classList.remove("show"); };
+$("save").onclick = () => {
+  settings = {
+    work: clamp($("s-work").value, 1, 120),
+    shortBreak: clamp($("s-short").value, 1, 60),
+    longBreak: clamp($("s-long").value, 1, 60),
+    interval: clamp($("s-interval").value, 1, 12),
+    auto: $("s-auto").checked,
+    sound: $("s-sound").checked,
+  };
+  localStorage.setItem("pomo-settings", JSON.stringify(settings));
+  $("overlay").classList.remove("show");
+  setMode(mode, true);   // apply new duration to current mode if idle
+};
+function clamp(v, lo, hi) { v = parseInt(v) || lo; return Math.min(hi, Math.max(lo, v)); }
+
+// init
+setMode("work", true);
+</script>
+</body>
+</html>

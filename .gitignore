@@ -1,0 +1,13 @@
+# OS
+Thumbs.db
+Desktop.ini
+
+# Editor
+.vscode/
+!.vscode/extensions.json
+
+# Logs
+*.log
+
+# Legacy archive (optional local copies)
+/_legacy-tomatotodo/
